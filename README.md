@@ -9,9 +9,35 @@ The toolchain is built around two main steps:
 1. Collect valid login tokens from Xiaomi Community (`new_bbs_serviceToken` and `popRunToken`).
 2. Send a precisely timed unlock request to Xiaomi's API around Beijing midnight (`UTC+8`) to improve timing against daily quota limits.
 
+## Requirements
+
+- Python 3.x
+- Browser access to Xiaomi Community account
+- Chrome WebDriver available for Selenium-based token extraction
+- Internet access to NTP servers and Xiaomi API endpoints
+
+The scripts can auto-install Python dependencies when missing.
+
+## Basic Usage (Windows)
+
+**Recommended — one-click launch:**
+
+1. Double-click `AutoStart.bat`.
+   - Detects `py` or `python` automatically and starts `AutoStart.py`.
+2. `AutoStart.py` opens a new console for `AutoJobs.py`, places it in the left column, and closes itself.
+3. Complete login prompts in Chrome and Firefox.
+4. `AutoJobs.py` extracts tokens, updates `token.txt`, and starts/restarts 4 `Script.py` windows automatically.
+
+**Alternative — run directly from a terminal:**
+
+```bash
+py AutoStart.py
+```
+
+
 ## Main Workflow
 
-1. Run `AutoStart.py`.
+1. Run `AutoStart.bat` or `python AutoStart.py`.
 2. `AutoStart.py` opens a new console for `AutoJobs.py`, places it in the left column, then closes the launcher window.
 3. `AutoJobs.py` logs in to `https://c.mi.com/global` in Chrome and Firefox and extracts tokens.
 4. `AutoJobs.py` writes tokens to `token.txt` (4 lines, reused by parallel runs).
@@ -36,31 +62,13 @@ The toolchain is built around two main steps:
 - `NScript.py`: alternate variant of the core script (different NTP server list).
 - `GetTokens.py`: Windows token extraction and multi-window launcher.
 - `GetTokens for Gnome on Linux by Jenna-66.py`: Linux/GNOME variant of token extraction.
-- `AutoStart.py`: bootstrap launcher that starts `AutoJobs.py` and places its console in the left column.
-- `AutoJobs.py`: credential-based auto-login/token refresh flow and auto-start of `Script.py` windows.
+- `AutoStart.bat`: Windows one-click launcher — detects the Python executable (`py` / `python`) and calls `AutoStart.py`.
+- `AutoStart.py`: bootstrap launcher that starts `AutoJobs.py` in a new dedicated console window and places it in column 1, then closes itself.
+- `AutoJobs.py`: main workflow — reads credentials from `account.txt`, auto-logs into Xiaomi Community in Chrome and Firefox, extracts tokens, updates `token.txt`, and manages 4 `Script.py` windows.
 - `token.txt`: token storage (one token per line).
 - `timeshift.txt`: per-window timing offset values (milliseconds).
 - `account.txt` / `account_default.txt`: account credential handling for `AutoJobs.py`.
 - `Ping.bat`: manual latency checks for listed servers.
-
-## Requirements
-
-- Python 3.x
-- Browser access to Xiaomi Community account
-- Chrome WebDriver available for Selenium-based token extraction
-- Internet access to NTP servers and Xiaomi API endpoints
-
-The scripts can auto-install Python dependencies when missing.
-
-## Basic Usage (Windows)
-
-1. Run:
-   ```bash
-   py AutoStart.py
-   ```
-2. Wait for `AutoStart.py` to hand over control to `AutoJobs.py`.
-3. Complete login prompts in Chrome and Firefox.
-4. Let `AutoJobs.py` update `token.txt` and start/restart 4 `Script.py` windows automatically.
 
 ## Alternative Token Collection
 
