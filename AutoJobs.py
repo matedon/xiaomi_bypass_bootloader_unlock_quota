@@ -10,9 +10,12 @@ AutoJobs.py
 
 import ctypes
 import os
+import random
 import subprocess
 import sys
 import time
+import urllib.parse
+import urllib.request
 from ctypes import wintypes
 
 # Auto-install missing packages.
@@ -40,11 +43,20 @@ ACCOUNT_DEFAULT = os.path.join(BASE_DIR, "account_default.txt")
 TOKEN_FILE = os.path.join(BASE_DIR, "token.txt")
 SCRIPT_FILE = os.path.join(BASE_DIR, "NScript.py")
 LOGIN_URL = "https://c.mi.com/global/"
-REFRESH_INTERVAL = 20 * 60  # seconds
+LOGOUT_CALLBACK_URL = "https://c.mi.com/global/"
+LOGOUT_URL = (
+    "https://sgp-api.buy.mi.com/bbs/api/global/user/login-out"
+    f"?callbackurl={urllib.parse.quote(LOGOUT_CALLBACK_URL, safe='')}"
+)
+REFRESH_INTERVAL = 1 * 60  # seconds
 SCRIPT_WIN_TITLES = [f"ScriptWin{i}" for i in range(1, 5)]
 AUTOJOBS_WINDOW_TITLE = "AutoJobsMain"
 
 _CURRENT_SCRIPT_PIDS = []  # wrapper process IDs started by this run
+_LAST_BROWSER_TOKENS = {
+    "chrome": {"bbs": None, "pop": None},
+    "firefox": {"bbs": None, "pop": None},
+}
 
 
 def get_work_area():
@@ -462,6 +474,8 @@ def refresh_tokens(username, password):
     print("  2/2  Firefox login")
     firefox_bbs, firefox_pop = login_firefox(username, password)
 
+    _store_browser_tokens(chrome_bbs, chrome_pop, firefox_bbs, firefox_pop)
+
     final_bbs = firefox_bbs or chrome_bbs
     final_pop = chrome_pop or firefox_pop
 
@@ -478,10 +492,116 @@ def refresh_tokens(username, password):
     return True
 
 
+def _store_browser_tokens(chrome_bbs, chrome_pop, firefox_bbs, firefox_pop):
+    _LAST_BROWSER_TOKENS["chrome"]["bbs"] = chrome_bbs
+    _LAST_BROWSER_TOKENS["chrome"]["pop"] = chrome_pop
+    _LAST_BROWSER_TOKENS["firefox"]["bbs"] = firefox_bbs
+    _LAST_BROWSER_TOKENS["firefox"]["pop"] = firefox_pop
+
+
+def _read_token_lines(path):
+    if not os.path.exists(path):
+        return []
+    with open(path, "r", encoding="utf-8") as f:
+        return [ln.strip() for ln in f if ln.strip()]
+
+
+def _attempt_logout_for_session(bbs_token, pop_token):
+    cookie_parts = []
+    if bbs_token and bbs_token != "N/A":
+        cookie_parts.append(f"new_bbs_serviceToken={bbs_token}")
+    if pop_token and pop_token != "N/A":
+        cookie_parts.append(f"popRunToken={pop_token}")
+
+    if not cookie_parts:
+        return False, None
+
+    cookie_header = "; ".join(cookie_parts) + ";"
+    req = urllib.request.Request(
+        LOGOUT_URL,
+        headers={
+            "Cookie": cookie_header,
+            "Referer": LOGIN_URL,
+            "User-Agent": "Mozilla/5.0",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        },
+        method="GET",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            code = getattr(resp, "status", None) or resp.getcode()
+        return 200 <= code < 400, code
+    except Exception:
+        return False, None
+
+
+def _collect_fallback_sessions_from_token_file(lines):
+    # token.txt layout currently: line1/3 BBS, line2/4 POP.
+    # Build two session attempts from rows 1-2 and 3-4 for compatibility fallback.
+    sessions = []
+    if len(lines) >= 2:
+        sessions.append(("tokenfile#1", lines[0], lines[1]))
+    if len(lines) >= 4:
+        sessions.append(("tokenfile#2", lines[2], lines[3]))
+    return sessions
+
+
+def logout_previous_sessions():
+    """Best-effort logout for previous BBS token sessions before refresh."""
+    sessions = []
+    chrome_bbs = _LAST_BROWSER_TOKENS["chrome"]["bbs"]
+    chrome_pop = _LAST_BROWSER_TOKENS["chrome"]["pop"]
+    firefox_bbs = _LAST_BROWSER_TOKENS["firefox"]["bbs"]
+    firefox_pop = _LAST_BROWSER_TOKENS["firefox"]["pop"]
+
+    # Always try browser-separated session logout first.
+    sessions.append(("chrome", chrome_bbs, chrome_pop))
+    sessions.append(("firefox", firefox_bbs, firefox_pop))
+
+    # If no in-memory browser tokens exist (e.g. after restart), fallback to token.txt layout.
+    has_any_in_memory = any([chrome_bbs, chrome_pop, firefox_bbs, firefox_pop])
+    if not has_any_in_memory:
+        lines = _read_token_lines(TOKEN_FILE)
+        sessions = _collect_fallback_sessions_from_token_file(lines)
+
+    sessions = [s for s in sessions if (s[1] and s[1] != "N/A") or (s[2] and s[2] != "N/A")]
+    if not sessions:
+        print("[i] Logout phase skipped: no prior browser session token found.")
+        return
+
+    print("[i] Logout phase: closing previous browser sessions...")
+    ok_count = 0
+    for idx, (label, bbs_tok, pop_tok) in enumerate(sessions, start=1):
+        ok, code = _attempt_logout_for_session(bbs_tok, pop_tok)
+        if ok:
+            ok_count += 1
+            print(f"[OK] Logout request #{idx} ({label}) accepted (HTTP {code}).")
+        else:
+            print(f"[!] Logout request #{idx} ({label}) could not be confirmed.")
+
+    print(f"[i] Logout phase done: {ok_count}/{len(sessions)} request(s) accepted.")
+
+
+def _randomized_refresh_interval(base_interval):
+    min_interval = max(1, int(base_interval * 0.8))
+    max_interval = max(min_interval, int(base_interval * 1.2))
+    return random.randint(min_interval, max_interval)
+
+
 def countdown_and_refresh(username, password):
     """20-minute countdown, then refresh tokens and restart 4 script windows."""
-    interval = REFRESH_INTERVAL
+    base_interval = REFRESH_INTERVAL
+    interval = _randomized_refresh_interval(base_interval)
+    delta_pct = ((interval - base_interval) / base_interval) * 100 if base_interval else 0.0
+
     print()
+    print(
+        "[i] Refresh interval randomized "
+        f"(+/-20%) to avoid a fixed periodic session pattern: {interval // 60:02d}:{interval % 60:02d} "
+        f"({delta_pct:+.1f}% vs base {base_interval // 60:02d}:{base_interval % 60:02d})."
+    )
+    print("[i] This helps reduce predictable timing on repeated reconnect/logout cycles.")
     print(f"[i] Next token refresh in {interval // 60} minutes. Press Ctrl+C to stop.")
 
     try:
@@ -497,6 +617,9 @@ def countdown_and_refresh(username, password):
 
     print("[i] Closing script windows...")
     close_script_windows()
+    time.sleep(1)
+
+    logout_previous_sessions()
     time.sleep(1)
 
     ok = refresh_tokens(username, password)
@@ -638,6 +761,8 @@ def main():
     print("  2/2  Firefox login")
     print("-" * 58)
     firefox_bbs, firefox_pop = login_firefox(username, password)
+
+    _store_browser_tokens(chrome_bbs, chrome_pop, firefox_bbs, firefox_pop)
 
     final_bbs = firefox_bbs or chrome_bbs
     final_pop = chrome_pop or firefox_pop
