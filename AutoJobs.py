@@ -5,7 +5,7 @@ AutoJobs.py
 2. Logs into Mi Community Global in Chrome and Firefox
 3. Extracts new_bbs_serviceToken and popRunToken cookies
 4. Updates token.txt
-5. Starts Script.py in 4 separate windows (token rows: 1, 2, 3, 4)
+5. Starts NScript.py in 4 separate windows (token rows: 1, 2, 3, 4)
 """
 
 import ctypes
@@ -38,7 +38,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ACCOUNT_FILE = os.path.join(BASE_DIR, "account.txt")
 ACCOUNT_DEFAULT = os.path.join(BASE_DIR, "account_default.txt")
 TOKEN_FILE = os.path.join(BASE_DIR, "token.txt")
-SCRIPT_FILE = os.path.join(BASE_DIR, "Script.py")
+SCRIPT_FILE = os.path.join(BASE_DIR, "NScript.py")
 LOGIN_URL = "https://c.mi.com/global/"
 REFRESH_INTERVAL = 20 * 60  # seconds
 SCRIPT_WIN_TITLES = [f"ScriptWin{i}" for i in range(1, 5)]
@@ -502,7 +502,7 @@ def countdown_and_refresh(username, password):
     ok = refresh_tokens(username, password)
 
     if ok:
-        print("[i] Restarting 4 Script.py windows...")
+        print("[i] Restarting 4 NScript.py windows...")
         launch_scripts()
     else:
         print("[ERR] Token refresh failed, windows were not restarted.")
@@ -662,7 +662,7 @@ def main():
     write_tokens(final_bbs, final_pop)
 
     print()
-    print("[i] Starting 4 Script.py windows...")
+    print("[i] Starting 4 NScript.py windows...")
     launch_scripts()
 
     while True:
