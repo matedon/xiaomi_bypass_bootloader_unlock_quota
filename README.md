@@ -3,6 +3,7 @@
 This project automates token collection and timed bootloader unlock requests for Xiaomi devices (Global flow), based on Xiaomi Community web/API behavior.
 
 > [!WARNING]
+> Use this project strictly at your own risk and your own responsibility.
 > Even if queue/add-authorize appears successful, authorization is not guaranteed and may be coincidence.
 > Constant, never-ending connected sessions might be noticed on Xiaomi's side, so avoid unnecessary nonstop activity and keep sessions practical.
 > This project now includes a best-effort pre-refresh logout phase that attempts separate logout requests for the previous Chrome and Firefox sessions.
