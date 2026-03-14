@@ -51,10 +51,32 @@ py AutoStart.py
 
 ## Window Layout (Windows)
 
-- The screen is split into 3 columns.
-- `AutoJobs.py` console occupies column 1 (left side).
-- Browser windows are opened in the full right 2/3 area (columns 2 and 3 combined).
-- The 4 `Script.py` windows are arranged in a 2x2 grid inside that same right 2/3 area.
+The screen is divided into 3 equal columns.
+
+**Phase 1 — Token collection (browser login):**
+
+```
+┌─────────────────┬─────────────────────────────────┐
+│                 │                                 │
+│   AutoJobs.py   │     Chrome / Firefox browser    │
+│   (log/status)  │        (c.mi.com/global)        │
+│                 │                                 │
+└─────────────────┴─────────────────────────────────┘
+   col 1 (1/3)              cols 2+3 (2/3)
+```
+
+**Phase 2 — Timed unlock requests (Script windows):**
+
+```
+┌─────────────────┬────────────────┬────────────────┐
+│                 │   Script.py    │   Script.py    │
+│   AutoJobs.py   │   (token #1)   │   (token #2)   │
+│   (log/status)  ├────────────────┼────────────────┤
+│                 │   Script.py    │   Script.py    │
+│                 │   (token #3)   │   (token #4)   │
+└─────────────────┴────────────────┴────────────────┘
+   col 1 (1/3)         col 2 (1/3)      col 3 (1/3)
+```
 
 ## File Roles
 
