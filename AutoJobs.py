@@ -48,7 +48,7 @@ LOGOUT_URL = (
     "https://sgp-api.buy.mi.com/bbs/api/global/user/login-out"
     f"?callbackurl={urllib.parse.quote(LOGOUT_CALLBACK_URL, safe='')}"
 )
-REFRESH_INTERVAL = 1 * 60  # seconds
+REFRESH_INTERVAL = 20 * 60  # seconds
 SCRIPT_WIN_TITLES = [f"ScriptWin{i}" for i in range(1, 5)]
 AUTOJOBS_WINDOW_TITLE = "AutoJobsMain"
 
